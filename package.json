@@ -13,11 +13,25 @@
     "url": "git+https://github.com/jedsgonzales-wizlex/kazenorei.git"
   },
   "keywords": [],
-  "author": "",
+  "author": "Jeds Gonzales <g.eduardo@wizlex.com>",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/jedsgonzales-wizlex/kazenorei/issues"
   },
   "homepage": "https://github.com/jedsgonzales-wizlex/kazenorei#readme",
-  "description": ""
+  "prettier": "prettier-config-standard",
+  "description": "",
+  "devDependencies": {
+    "@eslint/css": "^0.10.0",
+    "@eslint/js": "^9.31.0",
+    "@eslint/json": "^0.13.0",
+    "@eslint/markdown": "^7.0.0",
+    "@tsconfig/node-lts": "^22.0.2",
+    "@tsconfig/recommended": "^1.0.10",
+    "eslint": "^9.31.0",
+    "globals": "^16.3.0",
+    "lodash": "^4.17.21",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.38.0"
+  }
 }

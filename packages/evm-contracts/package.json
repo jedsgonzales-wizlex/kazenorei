@@ -3,10 +3,12 @@
   "type": "module",
   "version": "1.0.0",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "compile": "hardhat compile",
     "test:unit": "hardhat test --network hardhat",
-    "test:integration": "hardhat test --network integration"
+    "test:integration": "hardhat test --network integration",
+    "prettify": "prettier --write . --ignore-path .gitignore",
+    "lint": "eslint . --ext .js,.ts,.sol",
+    "lint:fix": "eslint . --ext .js,.ts,.sol --fix"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ignition": "^3.0.0-next.23",
@@ -14,7 +16,7 @@
     "@types/node": "^22.16.5",
     "forge-std": "github:foundry-rs/forge-std#v1.9.4",
     "hardhat": "^3.0.0-next.23",
-    "typescript": "~5.8.0",
+    "prettier-plugin-solidity": "^2.1.0",
     "viem": "^2.33.0"
   }
 }
