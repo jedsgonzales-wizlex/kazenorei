@@ -1,0 +1,12 @@
+{
+  "name": "kazenorei-nft",
+  "version": "1.0.0",
+  "description": "Typescript libraries for Kazenorei",
+  "main": "index.js",
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Jeds Gonzales",
+  "license": "ISC"
+}

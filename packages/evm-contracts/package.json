@@ -1,0 +1,20 @@
+{
+  "name": "evm-contracts",
+  "type": "module",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "compile": "hardhat compile",
+    "test:unit": "hardhat test --network hardhat",
+    "test:integration": "hardhat test --network integration"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ignition": "^3.0.0-next.23",
+    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.0-next.23",
+    "@types/node": "^22.16.5",
+    "forge-std": "github:foundry-rs/forge-std#v1.9.4",
+    "hardhat": "^3.0.0-next.23",
+    "typescript": "~5.8.0",
+    "viem": "^2.33.0"
+  }
+}
