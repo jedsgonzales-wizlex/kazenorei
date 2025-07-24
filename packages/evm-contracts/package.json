@@ -18,5 +18,9 @@
     "hardhat": "^3.0.0-next.23",
     "prettier-plugin-solidity": "^2.1.0",
     "viem": "^2.33.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.4.0",
+    "@openzeppelin/contracts-upgradeable": "^5.4.0"
   }
 }
