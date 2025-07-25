@@ -437,4 +437,36 @@ contract KazenoreiNFTTest is Test {
             "Balance should be 1 after unauthorized burning the token"
         );
     }
+
+    function test_RevokesApprovalWhenTransferred() public {
+        uint256 tokenId = getNftId();
+        nft.mint(nftOwner1, tokenId, "");
+
+        vm.startPrank(nftOwner1);
+        nft.approve(nftOwner2, tokenId);
+        nft.transferFrom(nftOwner1, inheritor1, tokenId);
+        vm.stopPrank();
+
+        assertEq(
+            nft.getApproved(tokenId),
+            address(0),
+            "Approval should be revoked after transfer"
+        );
+    }
+
+    function test_RevokesApprovalForAllOnTokenWhenTransferred() public {
+        uint256 tokenId = getNftId();
+        nft.mint(nftOwner1, tokenId, "");
+
+        vm.startPrank(nftOwner1);
+        nft.setApprovalForAll(nftOwner2, true);
+        nft.transferFrom(nftOwner1, inheritor1, tokenId);
+        vm.stopPrank();
+
+        assertEq(
+            nft.getApproved(tokenId),
+            address(0),
+            "Approval should be revoked after transfer"
+        );
+    }
 }

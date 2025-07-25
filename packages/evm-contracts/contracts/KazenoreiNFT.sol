@@ -104,12 +104,6 @@ contract KazenoreiNFT is ERC721RoyaltyUpgradeable, ERC721PausableUpgradeable, ER
 
     /// @inheritdoc ERC721Upgradeable
     function setApprovalForAll(address operator, bool approved) public whenNotPaused override(ERC721Upgradeable, IERC721) {
-        // Prevent the token owner from revoking approval with contract owner if the inheritor exists
-        // This is to ensure that the inheritor can still obtain the tokens after the owner's death
-        if(!approved && _inheritors[_msgSender()] != address(0) && operator == owner()) {
-            revert CannotRevokeApprovalWhileInheritorExists(operator);
-        }
-
         _setApprovalForAll(_msgSender(), operator, approved);
     }
 
@@ -203,10 +197,10 @@ contract KazenoreiNFT is ERC721RoyaltyUpgradeable, ERC721PausableUpgradeable, ER
      * 
      * @param tokenId The ID of the token to burn.
      */
-    function burn(uint256 tokenId) public {
+    function burn(uint256 tokenId) public whenNotPaused {
         require(_msgSender() == _requireOwned(tokenId), "UNAUTHORIZED_BURN_ERROR");
-        _burn(tokenId);
         _resetTokenRoyalty(tokenId);
         _setTokenURI(tokenId, "");
+        _burn(tokenId);
     }
 }
