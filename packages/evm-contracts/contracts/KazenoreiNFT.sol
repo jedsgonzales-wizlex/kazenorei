@@ -15,11 +15,9 @@ contract KazenoreiNFT is ERC721RoyaltyUpgradeable, ERC721PausableUpgradeable, ER
     event InheritorSet(address indexed tokenOwner, address indexed inheritor);
     event InheritanceComplete(address indexed tokenOwner, address indexed inheritor);
 
-    // state 1
-    mapping(address => address) private _inheritors;
-
-    // state 2
     string private _baseURIValue;
+    address private _inheritanceBroker;
+    address private _tradingBroker;
 
     function initialize(string memory nftName_, string memory nftSymbol_, string memory baseURI_) public initializer {
         __KazenoreiNFT_init(nftName_, nftSymbol_, baseURI_);
@@ -47,12 +45,24 @@ contract KazenoreiNFT is ERC721RoyaltyUpgradeable, ERC721PausableUpgradeable, ER
 
     // Override _update to resolve inheritance conflict
     function _update(address to, uint256 tokenId, address auth) internal override(ERC721PausableUpgradeable, ERC721Upgradeable) returns (address) {
-        // TODO: Force Royalty charging, if set
+        // Upon transfer, reset the royalty for the token
+        // This is necessary to ensure that the inheritor does not inherit the previous owner's royalty settings
+        _resetTokenRoyalty(tokenId);
+
         return super._update(to, tokenId, auth);
     }
 
     function _baseURI() internal view virtual override returns (string memory) {
         return _baseURIValue;
+    }
+
+    /// @inheritdoc IERC721
+    function isApprovedForAll(address owner, address operator) public view override returns (bool) {
+        if (operator == address(0)) {
+            return false; // No operator can be approved for the zero address
+        }
+        
+        return super.isApprovedForAll(owner, operator) || (operator == _inheritanceBroker) || (operator == _tradingBroker);
     }
 
     // Override supportsInterface to resolve inheritance conflict
@@ -67,6 +77,14 @@ contract KazenoreiNFT is ERC721RoyaltyUpgradeable, ERC721PausableUpgradeable, ER
 
     function setPaused(bool flag_) public onlyOwner {
         flag_ ? _pause() : _unpause();
+    }
+
+    function setInheritanceBroker(address broker_) public onlyOwner {
+        _inheritanceBroker = broker_;
+    }
+
+    function setTradingBroker(address broker_) public onlyOwner {
+        _tradingBroker = broker_;
     }
 
     function setDefaultRoyalty(address receiver, uint96 feeNumerator) public onlyOwner whenNotPaused {
@@ -111,85 +129,7 @@ contract KazenoreiNFT is ERC721RoyaltyUpgradeable, ERC721PausableUpgradeable, ER
     function approve(address to, uint256 tokenId) public whenNotPaused override(ERC721Upgradeable, IERC721) {
         super.approve(to, tokenId);
     }
-
-    /**
-     * @dev Sets the inheritor for the token owner.
-     * This allows the owner to specify an address that will inherit the token ownership in case of death.
-     * 
-     * Requirements:
-     * - The caller must be a token owner.
-     * 
-     * @param inheritor The address that will inherit the token ownership in case of the owner's death. 
-     * If set to address(0), it will clear the previous inheritor.
-     */
-    function setInheritor(address inheritor) public whenNotPaused {
-        address tokenOwner = _msgSender();
-
-        require(balanceOf(tokenOwner) > 0, "NO_EXISTING_TOKEN");
-
-        if(inheritor == address(0)) {
-            delete _inheritors[tokenOwner];
-            setApprovalForAll(owner(), false);
-        } else {
-            _inheritors[tokenOwner] = inheritor;
-        }
-
-        emit InheritorSet(tokenOwner, inheritor);
-    }
     
-    /**
-     * @dev Gets the inheritor for the specified token owner.
-     * This function allows anyone to query the inheritor address for a given token owner.
-     * 
-     * Requirements:
-     * - The token owner must have set an inheritor.
-     * 
-     * @param tokenOwner The address of the token owner whose inheritor is being queried.
-     * 
-     * @return The address of the inheritor for the specified token owner.
-     */
-    function getInheritor(address tokenOwner) external view returns (address) {
-        return _inheritors[tokenOwner];
-    }
-
-    /**
-     * @dev Transfers the ownership of specified token IDs from the token owner to their inheritor.
-     * This function allows the inheritor to gain ownership of the tokens in case of the owner's death.
-     * Note that all token with specified royalty will be reset to default after the transfer.
-     * 
-     * Requirements:
-     * - The caller must be the contract owner.
-     * - The token owner must have set an inheritor.
-     * 
-     * @param tokenOwner The address of the token owner whose tokens are being transferred.
-     * @param tokenIds An array of token IDs to be transferred to the inheritor.
-     */
-    function transferInheritance(address tokenOwner, uint256[] memory tokenIds) public onlyOwner whenNotPaused {
-        require(tokenIds.length > 0 && tokenIds.length < 51, "BATCH_TRANSFER_MAX_50");
-
-        address inheritor = _inheritors[tokenOwner];
-        require(inheritor != address(0), "INHERITOR_NOT_SET"); // Royalty: Inheritor not set
-
-        // Ensure that the contract owner is approved for all tokens of the token owner
-        // This is necessary to allow the contract owner to transfer tokens on behalf of the token owner
-        if (!isApprovedForAll(tokenOwner, owner())) {
-            _setApprovalForAll(tokenOwner, owner(), true);
-        }
-
-        for (uint256 i = 0; i < tokenIds.length; i++) {
-            if (tokenOwner == _requireOwned(tokenIds[i])) {
-                safeTransferFrom(tokenOwner, inheritor, tokenIds[i]);
-                _resetTokenRoyalty(tokenIds[i]);
-            }
-        }
-
-        if( balanceOf(tokenOwner) == 0 ) {
-            delete _inheritors[tokenOwner];
-            _setApprovalForAll(tokenOwner, owner(), false);
-            emit InheritanceComplete(tokenOwner, inheritor);
-        }
-    }
-
     /**
      * @dev Burns a specific token.
      * Requirements:
