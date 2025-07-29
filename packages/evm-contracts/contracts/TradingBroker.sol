@@ -1,13 +1,14 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.28;
+
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IERC2981} from "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
-import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Tradeable} from "./interfaces/Tradeable.sol";
 
 contract TradingBroker is Ownable, Pausable {
-    using SafeMathUpgradeable for uint256;
 
     struct BuyCommitment {
         bytes32 commitMsg;
@@ -23,12 +24,13 @@ contract TradingBroker is Ownable, Pausable {
     uint256 private _commitWindow = 10 minutes;
 
     // Contract Address => token ID => Price
-    private mapping(address => mapping(tokenId => price)) private _saleListing;
-    private mapping(address => bool) private _allowedContracts;
+    mapping(address => mapping(uint256 => uint256)) private _saleListing;
+    mapping(address => bool) private _allowedContracts;
 
-    private mapping(address => mapping(tokenId => mapping(address => BuyCommitment))) private _buyCommitments;
+    // Contract Address => (token ID => (buyer address => BuyCommitment))
+    mapping(address => mapping(uint256 => mapping(address => BuyCommitment))) private _buyCommitments;
     
-    constructor() Ownable(msg.sender()) {
+    constructor() Ownable(msg.sender) {
         
     }
 
@@ -50,7 +52,7 @@ contract TradingBroker is Ownable, Pausable {
     }
 
     function addManagedContract(address contractAddress_, bool isManaged_) public onlyOwner {
-        require(contractAddress != address(0), "Invalid contract address");
+        require(contractAddress_ != address(0), "Invalid contract address");
 
         // Check if contractAddress supports Inheritable interface via ERC165
         require(
@@ -93,12 +95,10 @@ contract TradingBroker is Ownable, Pausable {
 
         require(price > 0, "Token is not for sale");
 
-        (address royaltyReceiver, uint256 royaltyAmount) = getRoyaltyFee(contractAddress_, tokenId_);
-
-        return price + royaltyAmount;
+        return price;
     }
 
-    function getRoyaltyFee(address contractAddress_, uint256 tokenId_) public view returns (address, uint256) {
+    function getRoyaltyFee(address contractAddress_, uint256 tokenId_, uint256 price_) public view returns (address, uint256) {
         _requireAllowedContract(contractAddress_);
 
         uint256 royaltyFee = 0;
@@ -106,14 +106,13 @@ contract TradingBroker is Ownable, Pausable {
 
         bool hasRoyalty = IERC165(contractAddress_).supportsInterface(type(IERC2981).interfaceId);
         if (hasRoyalty) {
-            (address receiver, uint256 amount) = IERC2981(contractAddress_).royaltyInfo(tokenId_, price);
-            if (receiver != address(0) && amount > 0) {
-                royaltyFee = amount;
-                royaltyReceiver = receiver;
-            }
+            (address receiver, uint256 amount) = IERC2981(contractAddress_).royaltyInfo(tokenId_, price_);
+            
+            royaltyFee = amount;
+            royaltyReceiver = receiver;
         }
 
-        return (receiver, royaltyFee);
+        return (royaltyReceiver, royaltyFee);
     }
 
     function commitBuy(address contractAddress_, uint256 tokenId_, bytes32 commitMsg_) public whenNotPaused {
@@ -136,21 +135,29 @@ contract TradingBroker is Ownable, Pausable {
         _requireAllowedContract(contractAddress_);
         _requireTokenForSale(contractAddress_, tokenId_);
 
-        (address royaltyReceiver, uint256 royaltyAmount) = getRoyaltyFee(contractAddress_, tokenId_);
+        address tokenOwner = IERC721(contractAddress_).ownerOf(tokenId_);
 
-        uint256 totalPrice = getTokenPrice(contractAddress_, tokenId_);
+        require(IERC721(contractAddress_).isApprovedForAll(tokenOwner, address(this)), "Contract does not approve broker");
 
-        uint256 payment = _msgValue();
-        uint256 payer = _msgSender();
+        uint256 price = getTokenPrice(contractAddress_, tokenId_);
+
+        // Get royalty fee if applicable
+        (address royaltyReceiver, uint256 royaltyAmount) = getRoyaltyFee(contractAddress_, tokenId_, price);
+
+        uint256 totalPrice = price + royaltyAmount;
+
+        uint256 payment = msg.value;
+        address payer = _msgSender();
 
         require(payment >= totalPrice, "Insufficient payment");
-
-        address tokenOwner = IERC721(contractAddress_).ownerOf(tokenId_);
         require(tokenOwner != payer, "Cannot buy your own token");
+
+        uint256 paymentToSeller = totalPrice - royaltyAmount;
+        require(paymentToSeller > 0, "No payment to seller");
 
         // Check buyer's commitment
         BuyCommitment storage commitment = _buyCommitments[contractAddress_][tokenId_][payer];
-
+        
         require(commitment.timestamp + _commitWindow >= block.timestamp, "No Commitment or expired");
         require(keccak256(abi.encodePacked(payer, totalPrice, contractAddress_, tokenId_)) == commitment.commitMsg, "Invalid commitment");
 
@@ -158,7 +165,7 @@ contract TradingBroker is Ownable, Pausable {
         IERC721(contractAddress_).safeTransferFrom(tokenOwner, payer, tokenId_);
 
         // Transfer the payment to the seller
-        payable(tokenOwner).transfer(price.sub(royaltyAmount));
+        payable(tokenOwner).transfer(paymentToSeller);
 
         // Transfer the royalty to the royalty receiver
         if (royaltyReceiver != address(0) && royaltyAmount > 0) {
@@ -172,6 +179,6 @@ contract TradingBroker is Ownable, Pausable {
         delete _saleListing[contractAddress_][tokenId_];
 
         // Reset the commitment
-        delete _buyCommitments[contractAddress_][tokenId_];
+        delete _buyCommitments[contractAddress_][tokenId_][payer];
     }
 }

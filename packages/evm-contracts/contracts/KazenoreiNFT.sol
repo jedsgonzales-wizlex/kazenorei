@@ -7,8 +7,10 @@ import {ERC721RoyaltyUpgradeable} from "@openzeppelin/contracts-upgradeable/toke
 import {ERC721PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721PausableUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {Tradeable} from "./interfaces/Tradeable.sol";
+import {Inheritable} from "./interfaces/Inheritable.sol";
 
-contract KazenoreiNFT is ERC721RoyaltyUpgradeable, ERC721PausableUpgradeable, ERC721URIStorageUpgradeable, OwnableUpgradeable {
+contract KazenoreiNFT is Tradeable, Inheritable, ERC721RoyaltyUpgradeable, ERC721PausableUpgradeable, ERC721URIStorageUpgradeable, OwnableUpgradeable {
     error ERC721TokenAlreadyOwned(uint256 tokenId);
     error CannotRevokeApprovalWhileInheritorExists(address operator);
 
@@ -57,7 +59,7 @@ contract KazenoreiNFT is ERC721RoyaltyUpgradeable, ERC721PausableUpgradeable, ER
     }
 
     /// @inheritdoc IERC721
-    function isApprovedForAll(address owner, address operator) public view override returns (bool) {
+    function isApprovedForAll(address owner, address operator) public view override(ERC721Upgradeable, IERC721) returns (bool) {
         if (operator == address(0)) {
             return false; // No operator can be approved for the zero address
         }
@@ -67,7 +69,9 @@ contract KazenoreiNFT is ERC721RoyaltyUpgradeable, ERC721PausableUpgradeable, ER
 
     // Override supportsInterface to resolve inheritance conflict
     function supportsInterface(bytes4 interfaceId) public view override(ERC721RoyaltyUpgradeable, ERC721URIStorageUpgradeable, ERC721Upgradeable) returns (bool) {
-        return super.supportsInterface(interfaceId);
+        return super.supportsInterface(interfaceId) || 
+               interfaceId == type(Inheritable).interfaceId || 
+               interfaceId == type(Tradeable).interfaceId;
     }
 
     /// @inheritdoc ERC721URIStorageUpgradeable
@@ -79,11 +83,11 @@ contract KazenoreiNFT is ERC721RoyaltyUpgradeable, ERC721PausableUpgradeable, ER
         flag_ ? _pause() : _unpause();
     }
 
-    function setInheritanceBroker(address broker_) public onlyOwner {
+    function setInheritanceBroker(address broker_) public override(Inheritable) onlyOwner {
         _inheritanceBroker = broker_;
     }
 
-    function setTradingBroker(address broker_) public onlyOwner {
+    function setTradingBroker(address broker_) public override(Tradeable) onlyOwner {
         _tradingBroker = broker_;
     }
 

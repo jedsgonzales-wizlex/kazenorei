@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.28;
 
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -21,9 +21,10 @@ contract InheritanceBroker is Ownable, Pausable {
     mapping(address => bool) private _allowedContracts;
 
     event InheritorSet(address indexed contractAddress, address indexed tokenOwner, address indexed inheritor);
+    event InheritorRevoked(address indexed contractAddress, address indexed tokenOwner, address indexed inheritor);
     event InheritanceComplete(address indexed contractAddress, address indexed tokenOwner, address indexed inheritor);
 
-    constructor() Ownable(msg.sender()) {
+    constructor() Ownable(msg.sender) {
         
     }
 
@@ -32,13 +33,7 @@ contract InheritanceBroker is Ownable, Pausable {
     }
 
     function addManagedContract(address contractAddress_, bool isManaged_) public onlyOwner {
-        require(contractAddress != address(0), "Invalid contract address");
-
-        // Check if contractAddress supports Inheritable interface via ERC165
-        require(
-            IERC165(contractAddress_).supportsInterface(INTERFACE_ID_INHERITABLE),
-            "Contract does not support Inheritable interface"
-        );
+        require(contractAddress_ != address(0), "Invalid contract address");
 
         // Check if contractAddress supports ERC721 interface via ERC165
         require(
@@ -46,31 +41,45 @@ contract InheritanceBroker is Ownable, Pausable {
             "Contract is not ERC721"
         );
 
+        // Check if contractAddress supports Inheritable interface via ERC165
+        require(
+            IERC165(contractAddress_).supportsInterface(INTERFACE_ID_INHERITABLE),
+            "Contract does not support Inheritable interface"
+        );
+
         _allowedContracts[contractAddress_] = isManaged_;
     }
 
-    function setTokenInheritor(address contractAddress, address tokenOwner, address inheritor) public whenNotPaused onlyOwner {
-        require(_allowedContracts[contractAddress], "Caller is not an allowed contract");
-        require(tokenOwner != address(0), "Invalid token owner address");
-        require(inheritor != address(0), "Invalid inheritor address");
+    function setTokenInheritor(address contractAddress_, address inheritor_) public whenNotPaused {
+        address tokenOwner = _msgSender();
 
-        _inheritors[contractAddress][tokenOwner] = inheritor;
+        require(_allowedContracts[contractAddress_], "Caller is not an allowed contract");
+        require(IERC721(contractAddress_).balanceOf(tokenOwner) > 0, "Owner has no tokens");
 
-        emit InheritorSet(contractAddress, tokenOwner, inheritor);
+        if(inheritor_ == address(0)) {
+            // If inheritor is set to zero address, remove the inheritor
+            address existingInheritor = _inheritors[contractAddress_][tokenOwner];
+            require(existingInheritor != address(0), "No inheritor set to revoke");
+
+            delete _inheritors[contractAddress_][tokenOwner];
+            emit InheritorRevoked(contractAddress_, tokenOwner, existingInheritor);
+        } else {
+            _inheritors[contractAddress_][tokenOwner] = inheritor_;
+            emit InheritorSet(contractAddress_, tokenOwner, inheritor_);
+        }
     }
 
     function getInheritor(address contractAddress_, address tokenOwner_) external view returns (address) {
         return _inheritors[contractAddress_][tokenOwner_];
     }
 
-    function transferInheritance(address contractAddress_, address tokenOwner_, uint256 tokenIds_) public whenNotPaused onlyOwner {
+    function transferInheritance(address contractAddress_, address tokenOwner_, uint256[] memory tokenIds_) public whenNotPaused onlyOwner {
         require(_allowedContracts[contractAddress_], "Caller is not an allowed contract");
-        require(tokenOwner != address(0), "Invalid token owner address");
-        require(tokenIds_.length > 0 && tokenIds_.length < 51, "BATCH_TRANSFER_MAX_50");
+        require(tokenOwner_ != address(0), "Invalid token owner address");
+        require(IERC721(contractAddress_).isApprovedForAll(tokenOwner_, address(this)), "Contract does not approve broker");
+        require(tokenIds_.length > 0 && tokenIds_.length < 51, "TOKENS_LEN_MIN_1_MAX_50");
 
-        mapping $ = _inheritors[contractAddress_];
-
-        address inheritor = $[tokenOwner];
+        address inheritor = _inheritors[contractAddress_][tokenOwner_];
         
         require(inheritor != address(0), "INHERITOR_NOT_SET");
 
@@ -85,7 +94,7 @@ contract InheritanceBroker is Ownable, Pausable {
         }
 
         if( IERC721(contractAddress_).balanceOf(tokenOwner_) == 0 ) {
-            delete $[tokenOwner_];
+            delete _inheritors[contractAddress_][tokenOwner_];
             emit InheritanceComplete(contractAddress_, tokenOwner_, inheritor);
         }
     }

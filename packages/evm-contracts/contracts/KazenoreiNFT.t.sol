@@ -7,8 +7,6 @@ import {KazenoreiNFT} from "./KazenoreiNFT.sol";
 import {Test} from "forge-std/Test.sol";
 
 contract KazenoreiNFTTest is Test {
-    event InheritorSet(address indexed owner, address indexed inheritor);
-
     using Strings for uint256;
     using Strings for address;
 
@@ -17,9 +15,6 @@ contract KazenoreiNFTTest is Test {
     address constant nftOwner0 = address(0x123);
     address constant nftOwner1 = address(0x456);
     address constant nftOwner2 = address(0x789);
-
-    address constant inheritor1 = address(0x101112);
-    address constant inheritor2 = address(0x131415);
 
     string constant baseURI = "https://api.kazenorei.com/metadata/";
     string constant nftName = "KazenoreiNFT";
@@ -341,52 +336,6 @@ contract KazenoreiNFTTest is Test {
         nft.setApprovalForAll(nftOwner2, true);
     }
 
-    function test_CannotAssignInheritorWoAsset() public {
-        vm.startPrank(nftOwner1);
-        vm.expectRevert(bytes("NO_EXISTING_TOKEN"));
-        nft.setInheritor(inheritor1);
-    }
-
-    function test_CanAssignInheritorOnlyWithAsset() public {
-        uint256 tokenId = getNftId();
-        nft.mint(nftOwner1, tokenId, "");
-
-        vm.startPrank(nftOwner1);
-        nft.setInheritor(inheritor1);
-        vm.stopPrank();
-
-        assertEq(
-            nft.getInheritor(nftOwner1),
-            inheritor1,
-            "inheritor1 should be the inheritor of nftOwner1"
-        );
-    }
-
-    function test_CannotAssignInheritorWhenPaused() public {
-        uint256 tokenId = getNftId();
-        nft.mint(nftOwner2, tokenId, "");
-
-        nft.setPaused(true);
-
-        vm.startPrank(nftOwner2);
-        vm.expectRevert(
-            abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector)
-        );
-        nft.setInheritor(inheritor2);
-    }
-
-    function test_EmitsInheritorSetEvent() public {
-        uint256 tokenId = getNftId();
-        nft.mint(nftOwner1, tokenId, "");
-
-        vm.startPrank(nftOwner1);
-
-        vm.expectEmit(true, true, true, true);
-        emit InheritorSet(nftOwner1, inheritor1);
-
-        nft.setInheritor(inheritor1);
-    }
-
     function test_AllowUsersToBurn() public {
         uint256 tokenId = getNftId();
         nft.mint(nftOwner1, tokenId, "");
@@ -444,7 +393,7 @@ contract KazenoreiNFTTest is Test {
 
         vm.startPrank(nftOwner1);
         nft.approve(nftOwner2, tokenId);
-        nft.transferFrom(nftOwner1, inheritor1, tokenId);
+        nft.transferFrom(nftOwner1, nftOwner2, tokenId);
         vm.stopPrank();
 
         assertEq(
@@ -460,7 +409,7 @@ contract KazenoreiNFTTest is Test {
 
         vm.startPrank(nftOwner1);
         nft.setApprovalForAll(nftOwner2, true);
-        nft.transferFrom(nftOwner1, inheritor1, tokenId);
+        nft.transferFrom(nftOwner1, nftOwner2, tokenId);
         vm.stopPrank();
 
         assertEq(
