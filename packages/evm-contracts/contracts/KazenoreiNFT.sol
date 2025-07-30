@@ -47,10 +47,6 @@ contract KazenoreiNFT is Tradeable, Inheritable, ERC721RoyaltyUpgradeable, ERC72
 
     // Override _update to resolve inheritance conflict
     function _update(address to, uint256 tokenId, address auth) internal override(ERC721PausableUpgradeable, ERC721Upgradeable) returns (address) {
-        // Upon transfer, reset the royalty for the token
-        // This is necessary to ensure that the inheritor does not inherit the previous owner's royalty settings
-        _resetTokenRoyalty(tokenId);
-
         return super._update(to, tokenId, auth);
     }
 
@@ -64,7 +60,9 @@ contract KazenoreiNFT is Tradeable, Inheritable, ERC721RoyaltyUpgradeable, ERC72
             return false; // No operator can be approved for the zero address
         }
         
-        return super.isApprovedForAll(owner, operator) || (operator == _inheritanceBroker) || (operator == _tradingBroker);
+        return super.isApprovedForAll(owner, operator) || 
+            (_inheritanceBroker != address(0)  && operator == _inheritanceBroker) || 
+            (_tradingBroker != address(0) && operator == _tradingBroker);
     }
 
     // Override supportsInterface to resolve inheritance conflict
@@ -99,15 +97,15 @@ contract KazenoreiNFT is Tradeable, Inheritable, ERC721RoyaltyUpgradeable, ERC72
      * @dev Sets the royalty for a specific token.
      * 
      * Requirements:
-     * - The caller must be the owner of the token.
+     * - The caller must be the owner of the contract (administered).
      * - The contract must not be paused.
      * 
      * @param tokenId The ID of the token for which the royalty is being set.
      * @param receiver The address that will receive the royalty payments.
      * @param feeNumerator The royalty fee percentage (in basis points).
      */
-    function setTokenRoyalty(uint256 tokenId, address receiver, uint96 feeNumerator) public whenNotPaused {
-        require(_msgSender() == _requireOwned(tokenId), "SET_ROYALTY_ERROR"); // Royalty: Not the owner of the token
+    function setTokenRoyalty(uint256 tokenId, address receiver, uint96 feeNumerator) public whenNotPaused onlyOwner {
+        _requireOwned(tokenId);
         _setTokenRoyalty(tokenId, receiver, feeNumerator);
     }
 

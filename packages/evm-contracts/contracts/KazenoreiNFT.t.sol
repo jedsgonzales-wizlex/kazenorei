@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {KazenoreiNFT} from "./KazenoreiNFT.sol";
@@ -237,16 +238,14 @@ contract KazenoreiNFTTest is Test {
         );
     }
 
-    function test_PerTokenRoyalty() public {
+    function test_PerTokenRoyaltyByContractOwner() public {
         uint256 tokenId = getNftId();
 
         nft.mint(nftOwner1, tokenId, "");
 
         nft.setDefaultRoyalty(address(this), 1_00); // = 1%
 
-        vm.startPrank(nftOwner1); // Next call will be from nftOwner1
         nft.setTokenRoyalty(tokenId, nftOwner1, 10_00); // = 10%
-        vm.stopPrank();
 
         (address receiver, uint256 amount) = nft.royaltyInfo(tokenId, 10_000);
 
@@ -261,7 +260,7 @@ contract KazenoreiNFTTest is Test {
         );
     }
 
-    function test_CantSetOtherTokenRoyalty() public {
+    function test_CantSetTokenRoyaltyWhenNotContractOwner() public {
         uint256 tokenId = getNftId();
 
         nft.mint(nftOwner1, tokenId, "");
@@ -269,7 +268,13 @@ contract KazenoreiNFTTest is Test {
         nft.setDefaultRoyalty(address(this), 1_00); // = 1%
 
         vm.startPrank(nftOwner2); // Next call will be from nftOwner1
-        vm.expectRevert(bytes("SET_ROYALTY_ERROR"));
+        
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OwnableUpgradeable.OwnableUnauthorizedAccount.selector,
+                nftOwner2
+            )
+        );
         nft.setTokenRoyalty(tokenId, nftOwner2, 10_00); // = 10%
         vm.stopPrank();
 

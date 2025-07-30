@@ -54,16 +54,16 @@ contract TradingBroker is Ownable, Pausable {
     function addManagedContract(address contractAddress_, bool isManaged_) public onlyOwner {
         require(contractAddress_ != address(0), "Invalid contract address");
 
-        // Check if contractAddress supports Inheritable interface via ERC165
-        require(
-            IERC165(contractAddress_).supportsInterface(INTERFACE_ID_TRADEABLE),
-            "Contract does not support Tradeable interface"
-        );
-
         // Check if contractAddress supports ERC721 interface via ERC165
         require(
             IERC165(contractAddress_).supportsInterface(INTERFACE_ID_ERC721),
             "Contract is not ERC721"
+        );
+
+        // Check if contractAddress supports Inheritable interface via ERC165
+        require(
+            IERC165(contractAddress_).supportsInterface(INTERFACE_ID_TRADEABLE),
+            "Contract does not support Tradeable interface"
         );
 
         _allowedContracts[contractAddress_] = isManaged_;
@@ -89,8 +89,6 @@ contract TradingBroker is Ownable, Pausable {
     }
 
     function getTokenPrice(address contractAddress_, uint256 tokenId_) public view returns (uint256) {
-        _requireAllowedContract(contractAddress_);
-
         uint256 price = _saleListing[contractAddress_][tokenId_];
 
         require(price > 0, "Token is not for sale");
@@ -123,7 +121,9 @@ contract TradingBroker is Ownable, Pausable {
 
         BuyCommitment storage commitment = _buyCommitments[contractAddress_][tokenId_][buyer];
 
-        require(commitment.commitMsg == bytes32(0) && commitment.timestamp + _commitWindow < block.timestamp, "Commitment exists");
+        require(commitment.commitMsg == bytes32(0) || 
+            commitment.timestamp == 0 || 
+            commitment.timestamp + _commitWindow < block.timestamp, "Commitment exists");
 
         _buyCommitments[contractAddress_][tokenId_][buyer] = BuyCommitment({
             commitMsg: commitMsg_,
@@ -144,23 +144,20 @@ contract TradingBroker is Ownable, Pausable {
         // Get royalty fee if applicable
         (address royaltyReceiver, uint256 royaltyAmount) = getRoyaltyFee(contractAddress_, tokenId_, price);
 
-        uint256 totalPrice = price + royaltyAmount;
-
         uint256 payment = msg.value;
         address payer = _msgSender();
 
-        require(payment >= totalPrice, "Insufficient payment");
+        require(payment >= price, "Insufficient payment");
         require(tokenOwner != payer, "Cannot buy your own token");
 
-        uint256 paymentToSeller = totalPrice - royaltyAmount;
-        require(paymentToSeller > 0, "No payment to seller");
+        uint256 paymentToSeller = price - royaltyAmount;
 
         // Check buyer's commitment
         BuyCommitment storage commitment = _buyCommitments[contractAddress_][tokenId_][payer];
         
-        require(commitment.timestamp + _commitWindow >= block.timestamp, "No Commitment or expired");
-        require(keccak256(abi.encodePacked(payer, totalPrice, contractAddress_, tokenId_)) == commitment.commitMsg, "Invalid commitment");
-
+        require(keccak256(abi.encodePacked(payer, price, contractAddress_, tokenId_)) == commitment.commitMsg, "Invalid commitment");
+        require(commitment.timestamp + _commitWindow > block.timestamp, "No Commitment or expired");
+        
         // Transfer the token to the buyer
         IERC721(contractAddress_).safeTransferFrom(tokenOwner, payer, tokenId_);
 
@@ -173,7 +170,7 @@ contract TradingBroker is Ownable, Pausable {
         }
 
         // Emit event for sale
-        emit TokenPurchased(contractAddress_, payer, tokenId_, totalPrice);
+        emit TokenPurchased(contractAddress_, payer, tokenId_, price);
 
         // Remove the listing
         delete _saleListing[contractAddress_][tokenId_];
