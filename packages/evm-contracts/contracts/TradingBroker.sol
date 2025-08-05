@@ -85,14 +85,13 @@ contract TradingBroker is Ownable, Pausable {
         emit TokenForSaleAdded(contractAddress_, tokenId_, price_);
     }
 
-    // TODO: Add/Fix tests
     function revokeTokenForSale(address contractAddress_, uint256 tokenId_) public {
         _requireAllowedContract(contractAddress_);
 
         address caller =  _msgSender();
 
         address tokenOwner = IERC721(contractAddress_).ownerOf(tokenId_);
-        require(tokenOwner == caller || contractAddress_ == caller, "Unauthorized to delist token");
+        require(caller == tokenOwner || caller == contractAddress_, "Unauthorized to delist token");
 
         // Emit event for sale
         emit TokenForSaleRemoved(contractAddress_, tokenId_);
@@ -189,9 +188,6 @@ contract TradingBroker is Ownable, Pausable {
 
         // Emit event for sale
         emit TokenPurchased(contractAddress_, payer, tokenId_, price);
-
-        // Remove the listing
-        // delete _saleListing[contractAddress_][tokenId_];
 
         // Reset the commitment
         delete _buyCommitments[contractAddress_][payer];
