@@ -153,7 +153,7 @@ contract TradingBrokerTest is Test {
 
         vm.startPrank(nftOwner1);
         vm.expectEmit(true, true, true, true);
-        emit TradingBroker.TokenForSale(address(_nft), tokenId, 1 ether);
+        emit TradingBroker.TokenForSaleAdded(address(_nft), tokenId, 1 ether);
         _tradingBroker.setTokenForSale(address(_nft), tokenId, 1 ether);
         vm.stopPrank();
     }
@@ -260,16 +260,7 @@ contract TradingBrokerTest is Test {
         bytes32 commitMsg = keccak256(abi.encodePacked(nftBuyer1, uint256(1 ether), address(_nft), tokenId));
 
         vm.expectRevert("Not an allowed contract");
-        _tradingBroker.commitBuy(address(_standardERC721), tokenId, commitMsg);
-    }
-
-    function test_commitBuy_NotForSaleToken_Reverts() public {
-        _tradingBroker.addManagedContract(address(_nft), true);
-        uint256 tokenId = getNftId();
-        bytes32 commitMsg = keccak256(abi.encodePacked(nftBuyer1, uint256(1 ether), address(_nft), tokenId));
-
-        vm.expectRevert("Token is not for sale");
-        _tradingBroker.commitBuy(address(_nft), tokenId, commitMsg);
+        _tradingBroker.commitBuy(address(_standardERC721), commitMsg);
     }
 
     function test_commitBuy_AcceptsCommitments() public {
@@ -285,7 +276,7 @@ contract TradingBrokerTest is Test {
         bytes32 commitMsg = keccak256(abi.encodePacked(nftBuyer1, uint256(1 ether), address(_nft), tokenId));
 
         vm.startPrank(nftBuyer1);
-        _tradingBroker.commitBuy(address(_nft), tokenId, commitMsg);
+        _tradingBroker.commitBuy(address(_nft), commitMsg);
         vm.stopPrank();
     }
 
@@ -302,10 +293,10 @@ contract TradingBrokerTest is Test {
         bytes32 commitMsg = keccak256(abi.encodePacked(nftBuyer1, uint256(1 ether), address(_nft), tokenId));
 
         vm.startPrank(nftBuyer1);
-        _tradingBroker.commitBuy(address(_nft), tokenId, commitMsg);
+        _tradingBroker.commitBuy(address(_nft), commitMsg);
 
         vm.expectRevert("Commitment exists");
-        _tradingBroker.commitBuy(address(_nft), tokenId, commitMsg);
+        _tradingBroker.commitBuy(address(_nft), commitMsg);
         vm.stopPrank();
     }
 
@@ -322,12 +313,12 @@ contract TradingBrokerTest is Test {
         bytes32 commitMsg1 = keccak256(abi.encodePacked(nftBuyer1, uint256(1 ether), address(_nft), tokenId));
 
         vm.startPrank(nftBuyer1);
-        _tradingBroker.commitBuy(address(_nft), tokenId, commitMsg1);
+        _tradingBroker.commitBuy(address(_nft), commitMsg1);
 
         bytes32 commitMsg2 = keccak256(abi.encodePacked(nftBuyer1, uint256(0.5 ether), address(_nft), tokenId));
 
         vm.expectRevert("Commitment exists");
-        _tradingBroker.commitBuy(address(_nft), tokenId, commitMsg2);
+        _tradingBroker.commitBuy(address(_nft), commitMsg2);
         vm.stopPrank();
     }
 
@@ -344,12 +335,12 @@ contract TradingBrokerTest is Test {
         bytes32 commitMsg = keccak256(abi.encodePacked(nftBuyer1, uint256(1 ether), address(_nft), tokenId));
 
         vm.startPrank(nftBuyer1);
-        _tradingBroker.commitBuy(address(_nft), tokenId, commitMsg);
+        _tradingBroker.commitBuy(address(_nft), commitMsg);
 
         // Simulate commitment expiration
         vm.warp(block.timestamp + uint256(11 minutes));
 
-        _tradingBroker.commitBuy(address(_nft), tokenId, commitMsg);
+        _tradingBroker.commitBuy(address(_nft), commitMsg);
         vm.stopPrank();
     }
 
@@ -377,7 +368,7 @@ contract TradingBrokerTest is Test {
         // make commitment
         bytes32 commitMsg = keccak256(abi.encodePacked(nftBuyer1, uint256(1 ether), address(_tradeableNft), tokenId));
         vm.startPrank(nftBuyer1);
-        _tradingBroker.commitBuy(address(_tradeableNft), tokenId, commitMsg);
+        _tradingBroker.commitBuy(address(_tradeableNft), commitMsg);
 
         vm.expectRevert("Contract does not approve broker");
         _tradingBroker.buyToken(address(_tradeableNft), tokenId);
@@ -399,7 +390,7 @@ contract TradingBrokerTest is Test {
 
         vm.startPrank(nftBuyer1);
 
-        _tradingBroker.commitBuy(address(_nft), tokenId, commitMsg);
+        _tradingBroker.commitBuy(address(_nft), commitMsg);
 
         // give buyer some funds
         vm.deal(nftBuyer1, 10 ether);
@@ -426,7 +417,7 @@ contract TradingBrokerTest is Test {
 
         vm.startPrank(nftOwner1);
 
-        _tradingBroker.commitBuy(address(_nft), tokenId, commitMsg);
+        _tradingBroker.commitBuy(address(_nft), commitMsg);
 
         // give buyer some funds
         vm.deal(nftOwner1, 10 ether);
@@ -476,7 +467,7 @@ contract TradingBrokerTest is Test {
 
         vm.startPrank(nftBuyer1);
 
-        _tradingBroker.commitBuy(address(_nft), tokenId, commitMsg);
+        _tradingBroker.commitBuy(address(_nft), commitMsg);
 
         // give buyer some funds
         vm.deal(nftBuyer1, 10 ether);
@@ -508,7 +499,7 @@ contract TradingBrokerTest is Test {
 
         vm.startPrank(nftBuyer1);
 
-        _tradingBroker.commitBuy(address(_nft), tokenId, commitMsg);
+        _tradingBroker.commitBuy(address(_nft), commitMsg);
 
         // give buyer some funds
         vm.deal(nftBuyer1, 10 ether);
@@ -535,7 +526,7 @@ contract TradingBrokerTest is Test {
 
         vm.startPrank(nftBuyer1);
 
-        _tradingBroker.commitBuy(address(_nft), tokenId, commitMsg);
+        _tradingBroker.commitBuy(address(_nft), commitMsg);
 
         // give buyer some funds
         vm.deal(nftBuyer1, 10 ether);
@@ -544,6 +535,62 @@ contract TradingBrokerTest is Test {
 
         address newOwner = _nft.ownerOf(tokenId);
         assertEq(newOwner, nftBuyer1, "Token should be transferred to the buyer");
+    }
+
+    function test_buyToken_BrokerEmitsPurchaseEventOnSuccessfulBuy() public {
+        _tradingBroker.addManagedContract(address(_nft), true);
+
+        _nft.setTradingBroker(address(_tradingBroker));
+
+        uint256 tokenId = getNftId();
+        _nft.mint(nftOwner1, tokenId, "");
+
+        vm.startPrank(nftOwner1);
+        _tradingBroker.setTokenForSale(address(_nft), tokenId, 1 ether);
+        vm.stopPrank();
+
+        bytes32 commitMsg = keccak256(abi.encodePacked(nftBuyer1, uint256(1 ether), address(_nft), tokenId));
+
+        vm.startPrank(nftBuyer1);
+
+        _tradingBroker.commitBuy(address(_nft), commitMsg);
+
+        // give buyer some funds
+        vm.deal(nftBuyer1, 10 ether);
+
+        vm.expectEmit(true, true, true, true);
+        emit TradingBroker.TokenPurchased(address(_nft), nftBuyer1, tokenId, uint256(1 ether));
+        _tradingBroker.buyToken{value: 1 ether}(address(_nft), tokenId);
+
+        vm.stopPrank();
+    }
+
+    function test_buyToken_BrokerEmitsRemovalEventOnSuccessfulBuy() public {
+        _tradingBroker.addManagedContract(address(_nft), true);
+
+        _nft.setTradingBroker(address(_tradingBroker));
+
+        uint256 tokenId = getNftId();
+        _nft.mint(nftOwner1, tokenId, "");
+
+        vm.startPrank(nftOwner1);
+        _tradingBroker.setTokenForSale(address(_nft), tokenId, 1 ether);
+        vm.stopPrank();
+
+        bytes32 commitMsg = keccak256(abi.encodePacked(nftBuyer1, uint256(1 ether), address(_nft), tokenId));
+
+        vm.startPrank(nftBuyer1);
+
+        _tradingBroker.commitBuy(address(_nft), commitMsg);
+
+        // give buyer some funds
+        vm.deal(nftBuyer1, 10 ether);
+
+        vm.expectEmit(true, true, true, true);
+        emit TradingBroker.TokenForSaleRemoved(address(_nft), tokenId);
+        _tradingBroker.buyToken{value: 1 ether}(address(_nft), tokenId);
+
+        vm.stopPrank();
     }
 
     function test_buyToken_DefaultReceiverGetsDefaultRoyaltyOnSuccessfulBuy() public {
@@ -576,7 +623,7 @@ contract TradingBrokerTest is Test {
 
         vm.startPrank(nftBuyer1);
 
-        _tradingBroker.commitBuy(address(_nft), tokenId, commitMsg);
+        _tradingBroker.commitBuy(address(_nft), commitMsg);
 
         // give buyer some funds and buy token
         vm.deal(nftBuyer1, 10 ether);
@@ -626,7 +673,7 @@ contract TradingBrokerTest is Test {
 
         vm.startPrank(nftBuyer1);
 
-        _tradingBroker.commitBuy(address(_nft), tokenId, commitMsg);
+        _tradingBroker.commitBuy(address(_nft), commitMsg);
 
         // give buyer some funds and buy token
         vm.deal(nftBuyer1, 10 ether);
@@ -643,5 +690,101 @@ contract TradingBrokerTest is Test {
         assertTrue(finalBuyerBalance <= buyerBalance - price, "Buyer should have been charged the price");
         assertEq(finalBalance, initialBalance + 90, "Seller should receive the deducted payment");
         assertEq(royaltyReciverFinalBalance, royaltyReciverInitialBalance + 10, "Royalty receiver should receive the percentage of payment");
+    }
+
+    function test_revokeTokenForSale_RevertsWithDisallowedContracts() public {
+        vm.expectRevert("Not an allowed contract");
+        _tradingBroker.revokeTokenForSale(address(_tradeableNft), 1);
+    }
+
+    function test_revokeTokenForSale_RevertsIfCallerIsNotTokenOwner() public {
+        _tradingBroker.addManagedContract(address(_nft), true);
+
+        _nft.setTradingBroker(address(_tradingBroker));
+
+        uint256 tokenId = getNftId();
+        _nft.mint(nftOwner1, tokenId, "");
+
+        vm.startPrank(nftOwner1);
+        _tradingBroker.setTokenForSale(address(_nft), tokenId, uint256(0.5 ether));
+        vm.stopPrank();
+
+        vm.startPrank(nftOwner2);
+        vm.expectRevert("Unauthorized to delist token");
+        _tradingBroker.revokeTokenForSale(address(_nft), tokenId);
+        vm.stopPrank();
+    }
+
+    function test_revokeTokenForSale_RevertsIfCallerIsNotManagedContract() public {
+        _tradingBroker.addManagedContract(address(_nft), true);
+
+        _nft.setTradingBroker(address(_tradingBroker));
+
+        uint256 tokenId = getNftId();
+        _nft.mint(nftOwner1, tokenId, "");
+
+        vm.startPrank(nftOwner1);
+        _tradingBroker.setTokenForSale(address(_nft), tokenId, uint256(0.5 ether));
+        vm.stopPrank();
+
+        vm.startPrank(address(_tradeableNft));
+        vm.expectRevert("Unauthorized to delist token");
+        _tradingBroker.revokeTokenForSale(address(_nft), tokenId);
+        vm.stopPrank();
+    }
+
+    function test_revokeTokenForSale_SuccessfullyRemovesTokenListingIfCalledbyTokenOwner() public {
+        _tradingBroker.addManagedContract(address(_nft), true);
+
+        _nft.setTradingBroker(address(_tradingBroker));
+
+        uint256 tokenId = getNftId();
+        _nft.mint(nftOwner1, tokenId, "");
+
+        vm.startPrank(nftOwner1);
+        _tradingBroker.setTokenForSale(address(_nft), tokenId, uint256(0.5 ether));
+        
+        _tradingBroker.revokeTokenForSale(address(_nft), tokenId);
+        vm.stopPrank();
+
+        assertFalse(_tradingBroker.isTokenForSale(address(_nft), tokenId));
+    }
+
+    function test_revokeTokenForSale_SuccessfullyRemovesTokenListingIfCalledByMangedContract() public {
+        _tradingBroker.addManagedContract(address(_nft), true);
+
+        _nft.setTradingBroker(address(_tradingBroker));
+
+        uint256 tokenId = getNftId();
+        _nft.mint(nftOwner1, tokenId, "");
+
+        vm.startPrank(nftOwner1);
+        _tradingBroker.setTokenForSale(address(_nft), tokenId, uint256(0.5 ether));
+        vm.stopPrank();
+
+        vm.startPrank(address(_nft));
+        _tradingBroker.revokeTokenForSale(address(_nft), tokenId);
+        vm.stopPrank();
+
+        assertFalse(_tradingBroker.isTokenForSale(address(_nft), tokenId));
+    }
+
+    function test_revokeTokenForSale_SuccessfulRevocationEmitsEvent() public {
+        _tradingBroker.addManagedContract(address(_nft), true);
+
+        _nft.setTradingBroker(address(_tradingBroker));
+
+        uint256 tokenId = getNftId();
+        _nft.mint(nftOwner1, tokenId, "");
+
+        vm.startPrank(nftOwner1);
+        _tradingBroker.setTokenForSale(address(_nft), tokenId, uint256(0.5 ether));
+        vm.stopPrank();
+
+        vm.startPrank(address(_nft));
+        vm.expectEmit(true, true, true, true);
+        emit TradingBroker.TokenForSaleRemoved(address(_nft), tokenId);
+        _tradingBroker.revokeTokenForSale(address(_nft), tokenId);
+        vm.stopPrank();
     }
 }

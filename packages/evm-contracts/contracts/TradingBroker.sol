@@ -8,6 +8,8 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Tradeable} from "./interfaces/Tradeable.sol";
 
+import "forge-std/console.sol";
+
 contract TradingBroker is Ownable, Pausable {
 
     struct BuyCommitment {
@@ -15,7 +17,8 @@ contract TradingBroker is Ownable, Pausable {
         uint256 timestamp;
     }
 
-    event TokenForSale(address indexed contractAddress, uint256 indexed tokenId, uint256 price);
+    event TokenForSaleAdded(address indexed contractAddress, uint256 indexed tokenId, uint256 price);
+    event TokenForSaleRemoved(address indexed contractAddress, uint256 indexed tokenId_);
     event TokenPurchased(address indexed contractAddress, address indexed buyer, uint256 tokenId, uint256 price);
 
     bytes4 private constant INTERFACE_ID_TRADEABLE = type(Tradeable).interfaceId;
@@ -28,7 +31,7 @@ contract TradingBroker is Ownable, Pausable {
     mapping(address => bool) private _allowedContracts;
 
     // Contract Address => (token ID => (buyer address => BuyCommitment))
-    mapping(address => mapping(uint256 => mapping(address => BuyCommitment))) private _buyCommitments;
+    mapping(address => mapping(address => BuyCommitment)) private _buyCommitments;
     
     constructor() Ownable(msg.sender) {
         
@@ -79,7 +82,23 @@ contract TradingBroker is Ownable, Pausable {
 
         _saleListing[contractAddress_][tokenId_] = price_;
 
-        emit TokenForSale(contractAddress_, tokenId_, price_);
+        emit TokenForSaleAdded(contractAddress_, tokenId_, price_);
+    }
+
+    // TODO: Add/Fix tests
+    function revokeTokenForSale(address contractAddress_, uint256 tokenId_) public {
+        _requireAllowedContract(contractAddress_);
+
+        address caller =  _msgSender();
+
+        address tokenOwner = IERC721(contractAddress_).ownerOf(tokenId_);
+        require(tokenOwner == caller || contractAddress_ == caller, "Unauthorized to delist token");
+
+        // Emit event for sale
+        emit TokenForSaleRemoved(contractAddress_, tokenId_);
+
+        // Remove the listing
+        delete _saleListing[contractAddress_][tokenId_];
     }
 
     function isTokenForSale(address contractAddress_, uint256 tokenId_) public view returns (bool) {
@@ -113,19 +132,18 @@ contract TradingBroker is Ownable, Pausable {
         return (royaltyReceiver, royaltyFee);
     }
 
-    function commitBuy(address contractAddress_, uint256 tokenId_, bytes32 commitMsg_) public whenNotPaused {
+    function commitBuy(address contractAddress_, bytes32 commitMsg_) public whenNotPaused {
         _requireAllowedContract(contractAddress_);
-        _requireTokenForSale(contractAddress_, tokenId_);
 
         address buyer = _msgSender();
 
-        BuyCommitment storage commitment = _buyCommitments[contractAddress_][tokenId_][buyer];
+        BuyCommitment storage commitment = _buyCommitments[contractAddress_][buyer];
 
         require(commitment.commitMsg == bytes32(0) || 
             commitment.timestamp == 0 || 
             commitment.timestamp + _commitWindow < block.timestamp, "Commitment exists");
 
-        _buyCommitments[contractAddress_][tokenId_][buyer] = BuyCommitment({
+        _buyCommitments[contractAddress_][buyer] = BuyCommitment({
             commitMsg: commitMsg_,
             timestamp: block.timestamp
         });
@@ -153,7 +171,7 @@ contract TradingBroker is Ownable, Pausable {
         uint256 paymentToSeller = price - royaltyAmount;
 
         // Check buyer's commitment
-        BuyCommitment storage commitment = _buyCommitments[contractAddress_][tokenId_][payer];
+        BuyCommitment storage commitment = _buyCommitments[contractAddress_][payer];
         
         require(keccak256(abi.encodePacked(payer, price, contractAddress_, tokenId_)) == commitment.commitMsg, "Invalid commitment");
         require(commitment.timestamp + _commitWindow > block.timestamp, "No Commitment or expired");
@@ -173,9 +191,9 @@ contract TradingBroker is Ownable, Pausable {
         emit TokenPurchased(contractAddress_, payer, tokenId_, price);
 
         // Remove the listing
-        delete _saleListing[contractAddress_][tokenId_];
+        // delete _saleListing[contractAddress_][tokenId_];
 
         // Reset the commitment
-        delete _buyCommitments[contractAddress_][tokenId_][payer];
+        delete _buyCommitments[contractAddress_][payer];
     }
 }

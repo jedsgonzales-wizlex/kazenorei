@@ -7,10 +7,14 @@ import {ERC721RoyaltyUpgradeable} from "@openzeppelin/contracts-upgradeable/toke
 import {ERC721PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721PausableUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {Tradeable} from "./interfaces/Tradeable.sol";
 import {Inheritable} from "./interfaces/Inheritable.sol";
+import {TradingBroker} from "./TradingBroker.sol";
 
 contract KazenoreiNFT is Tradeable, Inheritable, ERC721RoyaltyUpgradeable, ERC721PausableUpgradeable, ERC721URIStorageUpgradeable, OwnableUpgradeable {
+    using SafeCast for uint256;
+
     error ERC721TokenAlreadyOwned(uint256 tokenId);
     error CannotRevokeApprovalWhileInheritorExists(address operator);
 
@@ -45,9 +49,16 @@ contract KazenoreiNFT is Tradeable, Inheritable, ERC721RoyaltyUpgradeable, ERC72
         }
     }
 
-    // Override _update to resolve inheritance conflict
+    // Override _update to resolve inheritance conflict and implement new manuevers
     function _update(address to, uint256 tokenId, address auth) internal override(ERC721PausableUpgradeable, ERC721Upgradeable) returns (address) {
-        return super._update(to, tokenId, auth);
+        address from = super._update(to, tokenId, auth);
+
+        // delist from trading broker if listed for sale
+        if(_tradingBroker != address(0) && TradingBroker(_tradingBroker).isTokenForSale(address(this), tokenId)){
+            TradingBroker(_tradingBroker).revokeTokenForSale(address(this), tokenId);
+        }
+
+        return from;
     }
 
     function _baseURI() internal view virtual override returns (string memory) {
@@ -113,12 +124,18 @@ contract KazenoreiNFT is Tradeable, Inheritable, ERC721RoyaltyUpgradeable, ERC72
         _baseURIValue = baseURI_;
     }
 
-    function mint(address to, uint256 tokenId, string memory tokenURI_) public onlyOwner {
-        _requireNotOwned(tokenId);
-        _safeMint(to, tokenId);
+    function mint(address to_, uint256 tokenId_, string memory tokenURI_) public onlyOwner {
+        _requireNotOwned(tokenId_);
+        _safeMint(to_, tokenId_);
+
+        (address royaltyReceiver, uint256 royaltyFee) = royaltyInfo(tokenId_, _feeDenominator());
+        if (royaltyFee > 0) {
+            // set default royalty for the newly minted token
+            _setTokenRoyalty(tokenId_, to_, royaltyFee.toUint96());
+        }
 
         if(bytes(tokenURI_).length > 0) {
-            _setTokenURI(tokenId, tokenURI_);
+            _setTokenURI(tokenId_, tokenURI_);
         }
     }
 
