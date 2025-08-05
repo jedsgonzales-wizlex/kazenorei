@@ -271,6 +271,12 @@ contract InheritanceBrokerTest is Test {
         
         _inheritanceBroker.addManagedContract(contractAddress, true);
 
+        _nft.mint(nftOwner1, getNftId(), "");
+
+        vm.startPrank(nftOwner1);
+        _inheritanceBroker.setTokenInheritor(contractAddress, inheritor1);
+        vm.stopPrank();
+
         vm.expectRevert("Contract does not approve broker");
         _inheritanceBroker.transferInheritance(contractAddress, nftOwner1, new uint256[](0));
     }

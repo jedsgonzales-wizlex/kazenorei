@@ -9,4 +9,5 @@ interface ITradingBroker {
     function getRoyaltyFee(address contractAddress, uint256 tokenId, uint256 price) external view returns (address, uint256);
     function commitBuy(address contractAddress, bytes32 commitMsg) external;
     function buyToken(address contractAddress, uint256 tokenId) external payable;
+    function tokensForSale(address contractAddress, address owner) external view returns (uint256);
 }

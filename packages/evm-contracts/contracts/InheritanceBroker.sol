@@ -80,14 +80,13 @@ contract InheritanceBroker is ERC165, Ownable, Pausable, IInheritanceBroker {
     }
 
     function transferInheritance(address contractAddress_, address tokenOwner_, uint256[] memory tokenIds_) public whenNotPaused onlyOwner returns(uint96) {
+        address inheritor = _inheritors[contractAddress_][tokenOwner_];
+
         require(_allowedContracts[contractAddress_], "Caller is not an allowed contract");
         require(tokenOwner_ != address(0), "Invalid token owner address");
+        require(inheritor != address(0), "INHERITOR_NOT_SET");
         require(IERC721(contractAddress_).isApprovedForAll(tokenOwner_, address(this)), "Contract does not approve broker");
         require(tokenIds_.length > 0 && tokenIds_.length < 51, "TOKENS_LEN_MIN_1_MAX_50");
-
-        address inheritor = _inheritors[contractAddress_][tokenOwner_];
-        
-        require(inheritor != address(0), "INHERITOR_NOT_SET");
 
         // Logic to transfer ownership or rights to the inheritor
         // This would typically involve calling a function on the contract at contractAddress

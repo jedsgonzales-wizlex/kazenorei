@@ -7,12 +7,14 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {Tradeable} from "./interfaces/Tradeable.sol";
 import {ITradingBroker} from "./interfaces/ITradingBroker.sol";
 
 import "forge-std/console.sol";
 
 contract TradingBroker is ERC165, Ownable, Pausable, ITradingBroker {
+    using Math for uint256;
 
     struct BuyCommitment {
         bytes32 commitMsg;
@@ -34,6 +36,8 @@ contract TradingBroker is ERC165, Ownable, Pausable, ITradingBroker {
 
     // Contract Address => (token ID => (buyer address => BuyCommitment))
     mapping(address => mapping(address => BuyCommitment)) private _buyCommitments;
+
+    mapping(address => mapping(address => uint256)) private _tokensOnSale;
     
     constructor() Ownable(msg.sender) {
         
@@ -87,6 +91,7 @@ contract TradingBroker is ERC165, Ownable, Pausable, ITradingBroker {
         require(tokenOwner == _msgSender(), "Not the owner of the token");
 
         _saleListing[contractAddress_][tokenId_] = price_;
+        _tokensOnSale[contractAddress_][tokenOwner] = _tokensOnSale[contractAddress_][tokenOwner].saturatingAdd(1);
 
         emit TokenForSaleAdded(contractAddress_, tokenId_, price_);
     }
@@ -99,17 +104,25 @@ contract TradingBroker is ERC165, Ownable, Pausable, ITradingBroker {
         address tokenOwner = IERC721(contractAddress_).ownerOf(tokenId_);
         require(caller == tokenOwner || caller == contractAddress_, "Unauthorized to delist token");
 
-        // Emit event for sale
-        emit TokenForSaleRemoved(contractAddress_, tokenId_);
-
         // Remove the listing
         delete _saleListing[contractAddress_][tokenId_];
+
+        _tokensOnSale[contractAddress_][tokenOwner] = _tokensOnSale[contractAddress_][tokenOwner].saturatingSub(1);
+        
+        // Emit event for sale
+        emit TokenForSaleRemoved(contractAddress_, tokenId_);
     }
 
     function isTokenForSale(address contractAddress_, uint256 tokenId_) public view returns (bool) {
         _requireAllowedContract(contractAddress_);
 
         return _saleListing[contractAddress_][tokenId_] > 0;
+    }
+
+    function tokensForSale(address contractAddress_, address owner_) public view returns (uint256) {
+        _requireAllowedContract(contractAddress_);
+
+        return _tokensOnSale[contractAddress_][owner_];
     }
 
     function getTokenPrice(address contractAddress_, uint256 tokenId_) public view returns (uint256) {
