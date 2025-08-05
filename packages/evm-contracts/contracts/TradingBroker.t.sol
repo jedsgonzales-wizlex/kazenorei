@@ -230,17 +230,17 @@ contract TradingBrokerTest is Test {
 
         uint256 tokenId = getNftId();
         _nft.mint(nftOwner1, tokenId, "");
-        _nft.setDefaultRoyalty(nftOwner1, 5_00); // 5% royalty
+        _nft.setDefaultRoyalty(5_00); // 5% royalty
 
         (address receiver, uint256 fee) = _tradingBroker.getRoyaltyFee(address(_nft), tokenId, price);
-        assertEq(receiver, nftOwner1, "Royalty receiver should be the NFT owner");
+        assertEq(receiver, address(this), "Royalty receiver should be the NFT owner");
         assertEq(fee, 5 ether, "Royalty fee should be 5% of price ether");
     }
 
     function test_getRoyaltyFee_returnsTokenRoyaltyOnNFTWithAssignedRoyalty() public {
         _tradingBroker.addManagedContract(address(_nft), true);
 
-        _nft.setDefaultRoyalty(nftOwner1, 1_00); // 1% royalty
+        _nft.setDefaultRoyalty(1_00); // 1% royalty
 
         uint256 price = 100 ether;
 
@@ -597,7 +597,7 @@ contract TradingBrokerTest is Test {
         _tradingBroker.addManagedContract(address(_nft), true);
 
         _nft.setTradingBroker(address(_tradingBroker));
-        _nft.setDefaultRoyalty(nftOwner1, 5_00); // 5% royalty
+        _nft.setDefaultRoyalty(5_00); // 5% royalty
 
         uint256 tokenId = getNftId();
         _nft.mint(nftOwner1, tokenId, "");
@@ -646,7 +646,7 @@ contract TradingBrokerTest is Test {
         _tradingBroker.addManagedContract(address(_nft), true);
 
         _nft.setTradingBroker(address(_tradingBroker));
-        _nft.setDefaultRoyalty(nftOwner0, 5_00); // 5% default royalty
+        _nft.setDefaultRoyalty(5_00); // 5% default royalty
         
         uint256 tokenId = getNftId();
         _nft.mint(nftOwner1, tokenId, "");

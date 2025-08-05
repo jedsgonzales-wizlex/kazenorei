@@ -4,7 +4,6 @@ import { before, after, describe, it } from "node:test";
 import { expect } from "chai";
 import { network } from "hardhat";
 import { ethers, keccak256, solidityPacked } from "ethers";
-import { truncate } from "node:fs/promises";
 
 const nftName = "KazenoreiNFT";
 const nftSymbol = "KNFT";
@@ -15,7 +14,7 @@ const ZeroAddress = ethers.ZeroAddress as `0x${string}`;
 describe("KazenoreiNFT", async function () {
     const { viem, provider } = await network.connect();
     const publicClient = await viem.getPublicClient();
-    const [senderClient, nftOwner1, inheritor1, nftOwner2, inheritor2] = await viem.getWalletClients();
+    const [senderClient, fakeDeployer, nftOwner1, inheritor1, nftOwner2, inheritor2] = await viem.getWalletClients();
 
     let contract: Awaited<ReturnType<typeof viem.deployContract<"KazenoreiNFT">>>;
     let tokenId: bigint = 1n; // Initialize tokenId
@@ -223,7 +222,7 @@ describe("KazenoreiNFT", async function () {
 
             it('should not allow setting default royalty', async () => {
                 await viem.assertions.revertWithCustomError(
-                    contract.write.setDefaultRoyalty([nftOwner2.account.address, 1_00n]),
+                    contract.write.setDefaultRoyalty([1_00n]),
                     contract, "EnforcedPause"
                 );
             });
@@ -254,17 +253,17 @@ describe("KazenoreiNFT", async function () {
         });
 
         it('should allow setting default royalty', async () => {
-            await contract.write.setDefaultRoyalty([nftOwner1.account.address, 1_00n]);
+            await contract.write.setDefaultRoyalty([1_00n]);
             const [ receiver, amount ] = await contract.read.royaltyInfo([nftOwner1Id, 100n]);
 
-            expect(receiver.toLowerCase()).to.equal(nftOwner1.account.address.toLowerCase());
+            expect(receiver.toLowerCase()).to.equal(senderClient.account.address.toLowerCase());
             expect(amount).to.equal(1n);
         });
 
         it('should yield default royalty for all token w/o specified royalty', async () => {
             const [ receiver, amount ] = await contract.read.royaltyInfo([nftOwner2Id, 100n]);
 
-            expect(receiver.toLowerCase()).to.equal(nftOwner1.account.address.toLowerCase());
+            expect(receiver.toLowerCase()).to.equal(senderClient.account.address.toLowerCase());
             expect(amount).to.equal(1n);
         });
 
@@ -290,6 +289,9 @@ describe("KazenoreiNFT", async function () {
         let tradeBroker: Awaited<ReturnType<typeof viem.deployContract<"TradingBroker">>>;
         let inheritanceBroker: Awaited<ReturnType<typeof viem.deployContract<"InheritanceBroker">>>;
 
+        let fakeTradeBroker: Awaited<ReturnType<typeof viem.deployContract<"TradingBroker">>>;
+        let fakeInheritanceBroker: Awaited<ReturnType<typeof viem.deployContract<"InheritanceBroker">>>;
+
         before(async () => {
             tradeBroker = await viem.deployContract("TradingBroker");
             inheritanceBroker = await viem.deployContract("InheritanceBroker");
@@ -301,6 +303,40 @@ describe("KazenoreiNFT", async function () {
             // add contract to broker's allowed contracts
             await tradeBroker.write.addManagedContract([contract.address, true]);
             await inheritanceBroker.write.addManagedContract([contract.address, true]);
+        });
+
+        it('should not accept an unknown trading broker contract', async () => {
+            // deploy using another account
+            fakeTradeBroker = await viem.deployContract("TradingBroker", undefined, { client: { wallet: fakeDeployer } });
+
+            await viem.assertions.revertWith(
+                contract.write.setTradingBroker([fakeTradeBroker.address]),
+                "Diff Contract Owners Disallowed"
+            );
+        });
+
+        it('should not accept an invalid trading broker contract', async () => {
+            await viem.assertions.revertWith(
+                contract.write.setTradingBroker([inheritanceBroker.address]),
+                "Not a Trading Broker"
+            );
+        });
+
+        it('should not accept an unknown inheritance broker contract', async () => {
+            // deploy using another account
+            fakeInheritanceBroker = await viem.deployContract("InheritanceBroker", undefined, { client: { wallet: fakeDeployer } });
+
+            await viem.assertions.revertWith(
+                contract.write.setInheritanceBroker([fakeInheritanceBroker.address]),
+                "Diff Contract Owners Disallowed"
+            );
+        });
+
+        it('should not accept an invalid inheritance broker contract', async () => {
+            await viem.assertions.revertWith(
+                contract.write.setInheritanceBroker([tradeBroker.address]),
+                "Not an Inheritance Broker"
+            );
         });
 
         it('should allow selling NFTs even an inhertor is set', async () => {

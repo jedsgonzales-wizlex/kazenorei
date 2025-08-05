@@ -6,9 +6,11 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {Inheritable} from "./interfaces/Inheritable.sol";
+import {IInheritanceBroker} from "./interfaces/IInheritanceBroker.sol";
 
-contract InheritanceBroker is Ownable, Pausable {
+contract InheritanceBroker is ERC165, Ownable, Pausable, IInheritanceBroker {
     using Math for uint256;
 
     bytes4 constant INTERFACE_ID_INHERITABLE = type(Inheritable).interfaceId;
@@ -26,6 +28,10 @@ contract InheritanceBroker is Ownable, Pausable {
 
     constructor() Ownable(msg.sender) {
         
+    }
+
+    function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
+        return super.supportsInterface(interfaceId) || interfaceId == type(IInheritanceBroker).interfaceId;
     }
 
     function setPaused(bool flag_) public onlyOwner {
@@ -73,7 +79,7 @@ contract InheritanceBroker is Ownable, Pausable {
         return _inheritors[contractAddress_][tokenOwner_];
     }
 
-    function transferInheritance(address contractAddress_, address tokenOwner_, uint256[] memory tokenIds_) public whenNotPaused onlyOwner {
+    function transferInheritance(address contractAddress_, address tokenOwner_, uint256[] memory tokenIds_) public whenNotPaused onlyOwner returns(uint96) {
         require(_allowedContracts[contractAddress_], "Caller is not an allowed contract");
         require(tokenOwner_ != address(0), "Invalid token owner address");
         require(IERC721(contractAddress_).isApprovedForAll(tokenOwner_, address(this)), "Contract does not approve broker");
@@ -86,10 +92,13 @@ contract InheritanceBroker is Ownable, Pausable {
         // Logic to transfer ownership or rights to the inheritor
         // This would typically involve calling a function on the contract at contractAddress
         // that handles the inheritance logic.
+
+        uint96 transferred = 0;
         
         for (uint256 i = 0; i < tokenIds_.length; i++) {
             if (tokenOwner_ == IERC721(contractAddress_).ownerOf(tokenIds_[i])) {
                 IERC721(contractAddress_).safeTransferFrom(tokenOwner_, inheritor, tokenIds_[i]);
+                transferred++;
             }
         }
 
@@ -97,5 +106,7 @@ contract InheritanceBroker is Ownable, Pausable {
             delete _inheritors[contractAddress_][tokenOwner_];
             emit InheritanceComplete(contractAddress_, tokenOwner_, inheritor);
         }
+
+        return transferred;
     }
 }

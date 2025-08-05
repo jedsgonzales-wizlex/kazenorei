@@ -6,11 +6,13 @@ import {IERC2981} from "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {Tradeable} from "./interfaces/Tradeable.sol";
+import {ITradingBroker} from "./interfaces/ITradingBroker.sol";
 
 import "forge-std/console.sol";
 
-contract TradingBroker is Ownable, Pausable {
+contract TradingBroker is ERC165, Ownable, Pausable, ITradingBroker {
 
     struct BuyCommitment {
         bytes32 commitMsg;
@@ -35,6 +37,10 @@ contract TradingBroker is Ownable, Pausable {
     
     constructor() Ownable(msg.sender) {
         
+    }
+
+    function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
+        return super.supportsInterface(interfaceId) || interfaceId == type(ITradingBroker).interfaceId;
     }
 
     function _requireAllowedContract(address contractAddress_) internal view {

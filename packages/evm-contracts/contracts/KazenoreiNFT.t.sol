@@ -177,7 +177,7 @@ contract KazenoreiNFTTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector)
         );
-        nft.setDefaultRoyalty(address(this), 10_00); // = 10%
+        nft.setDefaultRoyalty(10_00); // = 10%
 
         (address receiver, uint256 amount) = nft.royaltyInfo(_tokenId, 10000);
 
@@ -186,7 +186,7 @@ contract KazenoreiNFTTest is Test {
     }
 
     function test_ZeroRoyaltyDefault() public {
-        nft.setDefaultRoyalty(address(this), 0);
+        nft.setDefaultRoyalty(0);
 
         (address receiver, uint256 amount) = nft.royaltyInfo(_tokenId, 10000);
 
@@ -195,7 +195,7 @@ contract KazenoreiNFTTest is Test {
     }
 
     function test_DefinedDefaultRoyalty() public {
-        nft.setDefaultRoyalty(address(this), 1_00); // = 1% => 1.00 -> 100
+        nft.setDefaultRoyalty(1_00); // = 1% => 1.00 -> 100
 
         (address receiver, uint256 amount) = nft.royaltyInfo(_tokenId, 10000);
 
@@ -215,7 +215,7 @@ contract KazenoreiNFTTest is Test {
 
         nft.mint(nftOwner1, tokenId, "");
 
-        nft.setDefaultRoyalty(address(this), 1_00); // = 1%
+        nft.setDefaultRoyalty(1_00); // = 1%
         nft.setPaused(true);
 
         vm.startPrank(nftOwner1); // Next call will be from nftOwner1
@@ -243,7 +243,7 @@ contract KazenoreiNFTTest is Test {
 
         nft.mint(nftOwner1, tokenId, "");
 
-        nft.setDefaultRoyalty(address(this), 1_00); // = 1%
+        nft.setDefaultRoyalty(1_00); // = 1%
 
         nft.setTokenRoyalty(tokenId, nftOwner1, 10_00); // = 10%
 
@@ -265,7 +265,7 @@ contract KazenoreiNFTTest is Test {
 
         nft.mint(nftOwner1, tokenId, "");
 
-        nft.setDefaultRoyalty(address(this), 1_00); // = 1%
+        nft.setDefaultRoyalty(1_00); // = 1%
 
         vm.startPrank(nftOwner2); // Next call will be from nftOwner1
         

@@ -6,11 +6,15 @@ import {ERC721URIStorageUpgradeable} from "@openzeppelin/contracts-upgradeable/t
 import {ERC721RoyaltyUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721RoyaltyUpgradeable.sol";
 import {ERC721PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721PausableUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {Tradeable} from "./interfaces/Tradeable.sol";
 import {Inheritable} from "./interfaces/Inheritable.sol";
 import {TradingBroker} from "./TradingBroker.sol";
+import {IInheritanceBroker} from "./interfaces/IInheritanceBroker.sol";
+import {ITradingBroker} from "./interfaces/ITradingBroker.sol";
 
 contract KazenoreiNFT is Tradeable, Inheritable, ERC721RoyaltyUpgradeable, ERC721PausableUpgradeable, ERC721URIStorageUpgradeable, OwnableUpgradeable {
     using SafeCast for uint256;
@@ -50,12 +54,21 @@ contract KazenoreiNFT is Tradeable, Inheritable, ERC721RoyaltyUpgradeable, ERC72
     }
 
     // Override _update to resolve inheritance conflict and implement new manuevers
-    function _update(address to, uint256 tokenId, address auth) internal override(ERC721PausableUpgradeable, ERC721Upgradeable) returns (address) {
-        address from = super._update(to, tokenId, auth);
+    function _update(address to_, uint256 tokenId_, address auth_) internal override(ERC721PausableUpgradeable, ERC721Upgradeable) returns (address) {
+        address from = super._update(to_, tokenId_, auth_);
 
         // delist from trading broker if listed for sale
-        if(_tradingBroker != address(0) && TradingBroker(_tradingBroker).isTokenForSale(address(this), tokenId)){
-            TradingBroker(_tradingBroker).revokeTokenForSale(address(this), tokenId);
+        if(_tradingBroker != address(0) && TradingBroker(_tradingBroker).isTokenForSale(address(this), tokenId_)){
+            TradingBroker(_tradingBroker).revokeTokenForSale(address(this), tokenId_);
+        }
+
+        // if moving from contract owner account to another, set the royalty
+        if(from == owner()){
+            (address royaltyReceiver, uint256 royaltyFee) = royaltyInfo(tokenId_, _feeDenominator());
+            if (royaltyFee > 0) {
+                // set default royalty for owner granted token
+                _setTokenRoyalty(tokenId_, to_, royaltyFee.toUint96());
+            }
         }
 
         return from;
@@ -93,15 +106,25 @@ contract KazenoreiNFT is Tradeable, Inheritable, ERC721RoyaltyUpgradeable, ERC72
     }
 
     function setInheritanceBroker(address broker_) public override(Inheritable) onlyOwner {
+        if(broker_ != address(0)){
+            require(IERC165(broker_).supportsInterface(type(IInheritanceBroker).interfaceId), "Not an Inheritance Broker");
+            require(Ownable(broker_).owner() == _msgSender(), "Diff Contract Owners Disallowed");
+        }
+        
         _inheritanceBroker = broker_;
     }
 
     function setTradingBroker(address broker_) public override(Tradeable) onlyOwner {
+        if(broker_ != address(0)){
+            require(IERC165(broker_).supportsInterface(type(ITradingBroker).interfaceId), "Not a Trading Broker");
+            require(Ownable(broker_).owner() == _msgSender(), "Diff Contract Owners Disallowed");
+        }
+
         _tradingBroker = broker_;
     }
 
-    function setDefaultRoyalty(address receiver, uint96 feeNumerator) public onlyOwner whenNotPaused {
-        _setDefaultRoyalty(receiver, feeNumerator);
+    function setDefaultRoyalty(uint96 feeNumerator) public onlyOwner whenNotPaused {
+        _setDefaultRoyalty(owner(), feeNumerator);
     }
 
     /**
@@ -128,10 +151,14 @@ contract KazenoreiNFT is Tradeable, Inheritable, ERC721RoyaltyUpgradeable, ERC72
         _requireNotOwned(tokenId_);
         _safeMint(to_, tokenId_);
 
-        (address royaltyReceiver, uint256 royaltyFee) = royaltyInfo(tokenId_, _feeDenominator());
-        if (royaltyFee > 0) {
-            // set default royalty for the newly minted token
-            _setTokenRoyalty(tokenId_, to_, royaltyFee.toUint96());
+        address owner = _msgSender();
+
+        if(to_ != owner){
+            (address royaltyReceiver, uint256 royaltyFee) = royaltyInfo(tokenId_, _feeDenominator());
+            if (royaltyFee > 0) {
+                // set default royalty for the newly minted token
+                _setTokenRoyalty(tokenId_, to_, royaltyFee.toUint96());
+            }
         }
 
         if(bytes(tokenURI_).length > 0) {
