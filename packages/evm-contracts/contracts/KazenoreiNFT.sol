@@ -128,15 +128,13 @@ contract KazenoreiNFT is
 
         return
             super.isApprovedForAll(owner, operator) ||
-            (_inheritanceBroker != address(0) &&
-                operator == _inheritanceBroker &&
+            (operator == _inheritanceBroker &&
                 IInheritanceBroker(_inheritanceBroker).getInheritor(
                     address(this),
                     owner
                 ) !=
                 address(0)) ||
-            (_tradingBroker != address(0) &&
-                operator == _tradingBroker &&
+            (operator == _tradingBroker &&
                 ITradingBroker(_tradingBroker).tokensForSale(
                     address(this),
                     owner

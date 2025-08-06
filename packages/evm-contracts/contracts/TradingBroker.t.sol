@@ -209,7 +209,7 @@ contract TradingBrokerTest is Test {
 
     function test_getRoyaltyFee_throwsErrorOnNonTradeableNFT() public {
         vm.expectRevert("Not an allowed contract");
-        _tradingBroker.getRoyaltyFee(address(_standardERC721), getNftId(), 1 ether);
+        _tradingBroker.getRoyaltyFee(address(_standardERC721), getNftId());
     }
 
     function test_getRoyaltyFee_returnsZeroRoyaltyOnNoRoyaltyContract() public {
@@ -218,7 +218,7 @@ contract TradingBrokerTest is Test {
         uint256 tokenId = getNftId();
         _nft.mint(nftOwner1, tokenId, "");
 
-        (address receiver, uint256 fee) = _tradingBroker.getRoyaltyFee(address(_nft), tokenId, 1 ether);
+        (address receiver, uint256 fee) = _tradingBroker.getRoyaltyFee(address(_nft), tokenId);
         assertEq(receiver, address(0), "Royalty receiver should be zero address");
         assertEq(fee, 0, "Royalty fee should be zero");
     }
@@ -232,7 +232,11 @@ contract TradingBrokerTest is Test {
         _nft.mint(nftOwner1, tokenId, "");
         _nft.setDefaultRoyalty(5_00); // 5% royalty
 
-        (address receiver, uint256 fee) = _tradingBroker.getRoyaltyFee(address(_nft), tokenId, price);
+        vm.startPrank(nftOwner1);
+        _tradingBroker.setTokenForSale(address(_nft), tokenId, price);
+        vm.stopPrank();
+
+        (address receiver, uint256 fee) = _tradingBroker.getRoyaltyFee(address(_nft), tokenId);
         assertEq(receiver, address(this), "Royalty receiver should be the NFT owner");
         assertEq(fee, 5 ether, "Royalty fee should be 5% of price ether");
     }
@@ -249,8 +253,12 @@ contract TradingBrokerTest is Test {
 
         _nft.setTokenRoyalty(tokenId, nftOwner1, 10_00); // 10% royalty
 
+        vm.startPrank(nftOwner1);
+        _tradingBroker.setTokenForSale(address(_nft), tokenId, price);
+        vm.stopPrank();
+
         vm.startPrank(nftOwner2);
-        (address receiver, uint256 fee) = _tradingBroker.getRoyaltyFee(address(_nft), tokenId, price);
+        (address receiver, uint256 fee) = _tradingBroker.getRoyaltyFee(address(_nft), tokenId);
         assertEq(receiver, nftOwner1, "Royalty receiver should be the NFT owner");
         assertEq(fee, 10 ether, "Royalty fee should be 10% of price ether");
     }
@@ -614,7 +622,7 @@ contract TradingBrokerTest is Test {
         _tradingBroker.setTokenForSale(address(_nft), tokenId, price);
         vm.stopPrank();
 
-        (address royaltyReciver, uint256 royaltyFee) = _tradingBroker.getRoyaltyFee(address(_nft), tokenId, price);
+        (address royaltyReciver, uint256 royaltyFee) = _tradingBroker.getRoyaltyFee(address(_nft), tokenId);
 
         uint256 initialBalance = address(nftOwner2).balance;
         uint256 royaltyReciverInitialBalance = address(royaltyReciver).balance;
@@ -664,7 +672,7 @@ contract TradingBrokerTest is Test {
         _tradingBroker.setTokenForSale(address(_nft), tokenId, price);
         vm.stopPrank();
 
-        (address royaltyReciver, uint256 royaltyFee) = _tradingBroker.getRoyaltyFee(address(_nft), tokenId, price);
+        (address royaltyReciver, uint256 royaltyFee) = _tradingBroker.getRoyaltyFee(address(_nft), tokenId);
 
         uint256 initialBalance = address(nftOwner2).balance;
         uint256 royaltyReciverInitialBalance = address(royaltyReciver).balance;
